@@ -5,9 +5,8 @@
 #==================================================================================================#
 
 import numpy as np
-
-from scipy.signal import find_peaks
 from enum import Enum
+from config import Config
 
 class VADState(Enum):
     SILENCE = 0
@@ -15,10 +14,12 @@ class VADState(Enum):
     HANGOVER = 2
 
 class VoiceActivityDetection:
-    def __init__(self, sample_rate_hz = 16000, frame_length = 400, hop_length = 160):
-        self.sample_rate_hz = sample_rate_hz
-        self.frame_length = frame_length
-        self.hop_length = hop_length
+    def __init__(self):
+        self.config = Config()
+
+        self.sampling_rate_hz = self.config.sampling_rate_hz
+        self.frame_length = self.config.frame_length
+        self.hop_length = self.config.hop_length
         self.smooth_window_length = 5
 
         self.VADState = VADState.SILENCE
@@ -26,7 +27,7 @@ class VoiceActivityDetection:
         self.energy_top_threshold = None
         self.energy_bottom_threshold = None
         self.spectral_entropy_threshold = None
-        self.hangovers_max = 8
+        self.hangovers_max = 4
         self.hangovers = 0
 
         self.start_frame = None
@@ -37,6 +38,18 @@ class VoiceActivityDetection:
         self.entropy_history = []
         self.vad_speech_history_counter = 0
         self.previous_vad_state = self.VADState.SILENCE
+
+    def reset_state(self):
+        self.VADState = VADState.SILENCE
+        self.hangovers = 0
+        self.start_frame = None
+        self.current_frame = 0
+
+        self.data_history.clear()
+        self.energy_history.clear()
+        self.entropy_history.clear()
+        self.vad_speech_history_counter = 0
+        self.previous_vad_state = VADState.SILENCE
 
     def _get_energy(self, audio_data):
        return np.mean(audio_data ** 2)
@@ -79,7 +92,7 @@ class VoiceActivityDetection:
                 if self.hangovers > self.hangovers_max:
                     self.VADState = VADState.SILENCE
 
-        if self.VADState == VADState.SPEECH and self.previous_vad_state == VADState.SPEECH:
+        if self.VADState in (VADState.SPEECH, VADState.HANGOVER):
             self.vad_speech_history_counter += 1
         else:
             self.vad_speech_history_counter = 0

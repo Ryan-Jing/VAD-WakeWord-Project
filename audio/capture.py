@@ -32,12 +32,36 @@ class AudioRingBuffer:
 
     def read_audio(self, audio_chunk):
         chunk_length = min(audio_chunk, self._capacity, self._total_written_data)
-        start_index = (self._write_ptr - audio_chunk) % self._capacity
+        if chunk_length <= 0:
+            return np.array([], dtype=np.float32)
+
+        start_index = (self._write_ptr - chunk_length) % self._capacity
 
         if start_index + chunk_length <= self._capacity:
             return self._buffer[start_index : start_index + chunk_length].copy()
         else:
             return np.concatenate([self._buffer[start_index :], self._buffer[: chunk_length - (self._capacity - start_index)]])
+
+    def read_audio_from(self, start_sample, audio_chunk):
+        available_start = max(0, self._total_written_data - self._capacity)
+        available_end = self._total_written_data
+
+        if start_sample < available_start:
+            start_sample = available_start
+
+        if start_sample >= available_end or audio_chunk <= 0:
+            return np.array([], dtype=np.float32)
+
+        chunk_length = min(audio_chunk, available_end - start_sample)
+        start_index = start_sample % self._capacity
+
+        if start_index + chunk_length <= self._capacity:
+            return self._buffer[start_index : start_index + chunk_length].copy()
+        else:
+            return np.concatenate([self._buffer[start_index :], self._buffer[: chunk_length - (self._capacity - start_index)]])
+
+    def get_total_written_data(self):
+        return self._total_written_data
 
     def clear_audio(self):
         self._buffer[:] = 0.0
